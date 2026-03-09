@@ -1,6 +1,12 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from pollen_monitor.notifier import compose_slack_message, send_slack_alert
+from pollen_monitor.notifier import (
+    compose_slack_message,
+    send_slack_alert,
+    compose_email_body,
+    send_email_alert,
+    _get_severity,
+)
 
 
 class TestComposeSlackMessage:
@@ -91,3 +97,83 @@ class TestSendSlackAlert:
         mock_post.return_value.raise_for_status.side_effect = req.exceptions.HTTPError("403")
         with pytest.raises(ValueError, match="Failed to send Slack alert"):
             send_slack_alert("test")
+
+
+class TestGetSeverity:
+
+    def test_level_0(self):
+        assert _get_severity(0) == ("None", "#4CAF50")
+
+    def test_level_3(self):
+        assert _get_severity(3) == ("Moderate", "#FF9800")
+
+    def test_level_5(self):
+        assert _get_severity(5) == ("Very High", "#B71C1C")
+
+    def test_non_numeric(self):
+        label, _ = _get_severity("Unknown")
+        assert label == "Unknown"
+
+
+class TestComposeEmailBody:
+
+    def test_contains_place_name(self):
+        data = {"pollen_level": 3, "index_description": "Moderate"}
+        html = compose_email_body(data, "Tokyo")
+        assert "Tokyo" in html
+
+    def test_severity_color_in_output(self):
+        data = {"pollen_level": 5, "index_description": "Very high"}
+        html = compose_email_body(data, "Osaka")
+        assert "#B71C1C" in html  # Very High accent color
+
+    def test_health_recs_dict_rendered(self):
+        data = {
+            "pollen_level": 4,
+            "index_description": "High",
+            "health_recommendations": {"tip": "Stay indoors."},
+        }
+        html = compose_email_body(data, "Shibuya")
+        assert "Stay indoors." in html
+
+    def test_health_recs_list_rendered(self):
+        data = {
+            "pollen_level": 3,
+            "index_description": "Moderate",
+            "health_recommendations": ["Wear a mask.", "Close windows."],
+        }
+        html = compose_email_body(data, "Meguro")
+        assert "Wear a mask." in html
+        assert "Close windows." in html
+
+    def test_no_health_recs_fallback(self):
+        data = {"pollen_level": 1, "index_description": "Low"}
+        html = compose_email_body(data, "Shinagawa")
+        assert "No recommendations available." in html
+
+    def test_valid_html_structure(self):
+        data = {"pollen_level": 3, "index_description": "Moderate"}
+        html = compose_email_body(data, "Test")
+        assert html.strip().startswith("<!DOCTYPE html>")
+        assert "</html>" in html
+
+    def test_uses_inline_styles(self):
+        """Ensure no <style> block (email clients strip them)."""
+        data = {"pollen_level": 3, "index_description": "Moderate"}
+        html = compose_email_body(data, "Test")
+        assert "<style>" not in html
+
+
+class TestSendEmailAlert:
+
+    @patch("pollen_monitor.notifier.os.getenv", return_value=None)
+    def test_missing_api_key_raises(self, mock_env):
+        with pytest.raises(ValueError, match="Resend API key is not set"):
+            send_email_alert({}, "Tokyo")
+
+    @patch("pollen_monitor.notifier.compose_email_body", return_value="<html></html>")
+    @patch("pollen_monitor.notifier.resend.Emails.send")
+    @patch("pollen_monitor.notifier.os.getenv", return_value="re_test_key")
+    def test_successful_send(self, mock_env, mock_send, mock_compose):
+        send_email_alert({"pollen_level": 3}, "Tokyo")
+        mock_send.assert_called_once()

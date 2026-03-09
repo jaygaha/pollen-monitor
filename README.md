@@ -1,12 +1,13 @@
 # Pollen Monitor
 
-A Python-based pollen level monitoring system that fetches real-time pollen forecasts from the Google Pollen API, stores readings in a local SQLite database, and sends Slack alerts when pollen levels exceed a configurable threshold.
+A Python-based pollen level monitoring system that fetches real-time pollen forecasts from the Google Pollen API, stores readings in a local SQLite database, and sends Slack and email alerts when pollen levels exceed a configurable threshold.
 
 ## Features
 
 - Fetches daily pollen forecasts (Tree, Grass, Weed) via the [Google Pollen API](https://developers.google.com/maps/documentation/pollen)
 - Configurable threshold-based alerting (UPI index 0-5)
 - Slack webhook notifications with health recommendations
+- Email alerts via [Resend](https://resend.com/) with a HTML template
 - SQLite database for historical pollen data logging
 - Structured logging to file and console
 
@@ -16,6 +17,7 @@ A Python-based pollen level monitoring system that fetches real-time pollen fore
 - [uv](https://docs.astral.sh/uv/) package manager
 - A Google Cloud API key with the Pollen API enabled
 - (Optional) A Slack incoming webhook URL
+- (Optional) A [Resend](https://resend.com/) API key for email alerts
 
 ## Installation
 
@@ -45,6 +47,7 @@ cp .env.example .env
 | `LONGITUDE` | Monitoring location longitude | `139.665694` |
 | `PLACE_NAME` | Human-readable location name | `Tokyo, Japan` |
 | `THRESHOLD` | UPI level that triggers alerts (0-5) | `3` |
+| `RESEND_API_KEY` | Resend API key for email alerts | — |
 
 ### Threshold Scale
 
@@ -70,6 +73,25 @@ For scheduled monitoring, use a cron job or task scheduler:
 0 7 * * * cd /path/to/pollen-monitor && uv run python -m pollen_monitor.main
 ```
 
+## Notifications
+
+When pollen levels meet or exceed the configured `THRESHOLD`, the monitor sends alerts through two channels:
+
+### Slack
+
+A formatted message is posted to the configured Slack webhook with the UPI index, description, and health recommendations.
+
+### Email (Resend)
+
+An HTML email is sent via the Resend API featuring:
+
+- A **severity-colored accent bar** that shifts from green (None) to red (Very High) based on the UPI level
+- A **UPI badge** showing the numeric index alongside the severity label
+- **Description** and **health recommendations** sections
+- Fully **inline-styled** for reliable rendering across email clients (Gmail, Outlook, Apple Mail)
+
+Set the `RESEND_API_KEY` environment variable to enable email alerts. The sender address and recipients are configured in `notifier.py`.
+
 ## Running Tests
 
 ```bash
@@ -86,7 +108,7 @@ pollen-monitor/
 │   ├── api.py           # Google Pollen API client
 │   ├── database.py      # SQLite storage layer
 │   ├── monitor.py       # Threshold checking logic
-│   ├── notifier.py      # Slack alert composition and delivery
+│   ├── notifier.py      # Slack and email alert composition and delivery
 │   └── logger.py        # Logging configuration
 ├── tests/
 │   ├── conftest.py      # Shared test fixtures
@@ -101,10 +123,6 @@ pollen-monitor/
 ```
 
 ## Potential Feature Expansions
-
-### Email Alerts
-
-Send email notifications when pollen levels breach the threshold using SMTP or a service like SendGrid/AWS SES. This would allow users who don't use Slack to receive alerts directly in their inbox.
 
 ### SMS Notifications
 
@@ -126,4 +144,8 @@ Allow users to configure alerts for specific pollen types (Tree, Grass, Weed) in
 
 Expose the stored pollen data via a lightweight REST API so other applications or home automation systems (e.g., Home Assistant) can query current and historical levels.
 
-### Contributing
+## Contributing
+
+Free free to star this repo and extend the feature
+
+happy coding🧑‍💻
