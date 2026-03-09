@@ -1,10 +1,10 @@
-import time
 import sys
 import os
 from pollen_monitor.api import get_pollen_forecast
 from pollen_monitor.database import init_db, log_reading
 from pollen_monitor.logger import logger
-from pollen_monitor.notifier import send_slack_alert, compose_slack_message
+from pollen_monitor.notifier import send_slack_alert, compose_slack_message, send_email_alert
+from pollen_monitor.monitor import check_threshold
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -34,11 +34,15 @@ def run_monitor():
         data = get_pollen_forecast(LAT, LON)
 
         # 3. Check Threshold
-        triggered = data["pollen_level"] >= THRESHOLD
+        triggered = check_threshold(data["pollen_level"], THRESHOLD)
         
         if triggered:
             formatted_message = compose_slack_message(data, PLACE_NAME)
             send_slack_alert(formatted_message)
+
+            # Alert user via email
+            send_email_alert(data, PLACE_NAME)
+
             print(f"⚠️ ALERT: High pollen detected! UPI Index: {data['pollen_level']}")
         else:
             print(f"✅ Pollen levels are manageable. UPI Index: {data['pollen_level']}")

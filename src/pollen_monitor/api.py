@@ -1,5 +1,4 @@
 import os
-import json
 import requests
 from dotenv import load_dotenv
 from pollen_monitor.logger import logger
@@ -20,6 +19,7 @@ def get_pollen_forecast(latitude: float, longitude: float):
             "location.longitude": longitude,
             "key": GOOGLE_API_KEY,
             "days": 1,
+            "languageCode": "ja"  # Japanese language for better local recommendations
         }
 
         response = requests.get(BASE_URL, params=params)
