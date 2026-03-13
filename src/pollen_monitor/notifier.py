@@ -16,9 +16,12 @@ def send_slack_alert(message):
         if not webhook_url:
             raise ValueError("Slack webhook URL is not set. Skipping Slack alert. Please check your .env file.")
 
-        payload = {
-            "text": message
-        }
+        # If message is a dict (blocks), use it directly; otherwise, wrap in text
+        if isinstance(message, dict):
+            payload = message
+        else:
+            payload = {"text": message}
+
         try:
             response = requests.post(webhook_url, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
             response.raise_for_status()
@@ -32,38 +35,87 @@ def send_slack_alert(message):
 
 
 def compose_slack_message(data, place_name):
-    """Composes a message string for Slack based on the pollen data."""
+    """Composes a Slack message using blocks for rich formatting based on the pollen data."""
     try:
         pollen_level = data.get("pollen_level", "Unknown")
         index_description = data.get("index_description", "No description available.")
         health_recommendations = data.get("health_recommendations", "No recommendations available.")
 
-        status_emoji = "🚨🦠" if isinstance(pollen_level, (int, float)) and pollen_level >= 4 else "🟡"
-        formatted_health_recommendations = ""
+        severity_label, accent_color = _get_severity(pollen_level)
 
-        # health_recommendations from Google API is a dict with keys like
-        # "recommendedOutdoorActivities", "allergicSymptoms", etc.
+        # Determine status emoji
+        status_emoji = "🚨🦠" if isinstance(pollen_level, (int, float)) and pollen_level >= 4 else "🟡"
+        status_image_url = "https://images.unsplash.com/vector-1740290028324-039b4d12e2b8?q=80&w=120&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" if isinstance(pollen_level, (int, float)) and pollen_level >= 4 else "https://images.unsplash.com/vector-1740290028314-db647d27d397?q=80&w=120&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+
+        # Format health recommendations
+        formatted_health_recommendations = ""
         if isinstance(health_recommendations, dict):
             for value in health_recommendations.values():
                 if value:
-                    formatted_health_recommendations += f"\n- {value}"
+                    formatted_health_recommendations += f"• {value}\n"
         elif isinstance(health_recommendations, list):
             for recommendation in health_recommendations:
-                formatted_health_recommendations += f"\n- {recommendation}"
+                formatted_health_recommendations += f"• {recommendation}\n"
 
         if not formatted_health_recommendations:
             formatted_health_recommendations = "No recommendations available."
 
-        message = (
-            f"{status_emoji} *POLLEN ALERT!·花粉注意報!*\n"
-            f"*Location:* {place_name}\n"
-            f"*Universal Index (UPI):* {pollen_level}\n"
-            f"*Description:*\n"
-            f"{index_description}\n\n"
-            f"*Health Recommendations:*\n"
-            f"{formatted_health_recommendations}\n"
-        )
-        return message
+        # Build Slack blocks
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"{status_emoji} POLLEN ALERT! · 花粉注意報!"
+                }
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Location:*\n{place_name}"
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Universal Index (UPI):*\n{pollen_level} ({severity_label})"
+                    }
+                ],
+                "accessory": {
+				"type": "image",
+				"image_url": f"{status_image_url}",
+				"alt_text": f"{severity_label}"
+			}
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Description:*\n{index_description}"
+                }
+            },
+            # {
+            #     "type": "section",
+            #     "text": {
+            #         "type": "mrkdwn",
+            #         "text": f"*Health Recommendations:*\n{formatted_health_recommendations}"
+            #     }
+            # },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "Pollen Monitor · Data from Google Pollen API"
+                    }
+                ]
+            }
+        ]
+
+        return {"blocks": blocks}
 
     except Exception as e:
         logger.error(f"Failed to compose Slack message: {e}")
