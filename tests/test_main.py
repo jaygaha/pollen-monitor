@@ -6,10 +6,11 @@ class TestRunMonitor:
 
     @patch("pollen_monitor.main.send_slack_alert")
     @patch("pollen_monitor.main.compose_slack_message", return_value="alert!")
+    @patch("pollen_monitor.main.send_email_alert")
     @patch("pollen_monitor.main.log_reading")
     @patch("pollen_monitor.main.init_db")
     @patch("pollen_monitor.main.get_pollen_forecast")
-    def test_triggers_alert_when_above_threshold(self, mock_fetch, mock_init, mock_log, mock_compose, mock_slack):
+    def test_triggers_alert_when_above_threshold(self, mock_fetch, mock_init, mock_log, mock_email, mock_compose, mock_slack):
         mock_fetch.return_value = {
             "pollen_level": 4,
             "pollen_type": "all",
@@ -23,6 +24,7 @@ class TestRunMonitor:
             run_monitor()
 
         mock_slack.assert_called_once_with("alert!")
+        mock_email.assert_called_once()
         mock_log.assert_called_once()
 
     @patch("pollen_monitor.main.send_slack_alert")
