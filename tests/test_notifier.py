@@ -21,9 +21,9 @@ class TestComposeSlackMessage:
             },
         }
         msg = compose_slack_message(data, "Tokyo, Japan")
-        assert "🟡" in msg
-        assert "Tokyo, Japan" in msg
-        assert "Wear a mask." in msg
+        assert "🟡" in msg["blocks"][0]["text"]["text"]
+        assert "Tokyo, Japan" in str(msg)
+        assert "Wear a mask." in msg["blocks"][4]["text"]["text"]
 
     def test_high_pollen_uses_alert_emoji(self):
         data = {
@@ -33,7 +33,7 @@ class TestComposeSlackMessage:
             "health_recommendations": {"tip": "Stay indoors."},
         }
         msg = compose_slack_message(data, "Osaka")
-        assert "🚨🦠" in msg
+        assert "🚨🦠" in msg["blocks"][0]["text"]["text"]
 
     def test_health_recommendations_as_dict(self):
         data = {
@@ -46,8 +46,9 @@ class TestComposeSlackMessage:
             },
         }
         msg = compose_slack_message(data, "Shibuya")
-        assert "Limit time outside." in msg
-        assert "Take antihistamines." in msg
+        health_text = msg["blocks"][4]["text"]["text"]
+        assert "Limit time outside." in health_text
+        assert "Take antihistamines." in health_text
 
     def test_health_recommendations_as_list(self):
         data = {
@@ -57,8 +58,9 @@ class TestComposeSlackMessage:
             "health_recommendations": ["Wear a mask.", "Close windows."],
         }
         msg = compose_slack_message(data, "Meguro")
-        assert "Wear a mask." in msg
-        assert "Close windows." in msg
+        health_text = msg["blocks"][4]["text"]["text"]
+        assert "Wear a mask." in health_text
+        assert "Close windows." in health_text
 
     def test_no_health_recommendations(self):
         data = {
@@ -68,12 +70,14 @@ class TestComposeSlackMessage:
             "health_recommendations": None,
         }
         msg = compose_slack_message(data, "Shinagawa")
-        assert "No recommendations available." in msg
+        health_text = msg["blocks"][4]["text"]["text"]
+        assert "No recommendations available." in health_text
 
     def test_missing_fields_use_defaults(self):
         msg = compose_slack_message({}, "Test")
-        assert "Test" in msg
-        assert "No description available." in msg
+        assert "Test" in str(msg)
+        desc_text = msg["blocks"][3]["text"]["text"]
+        assert "No description available." in desc_text
 
 
 class TestSendSlackAlert:
