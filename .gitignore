@@ -18,6 +18,11 @@ wheels/
 
 # Test / IDE caches
 .pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.cache
 .ruff_cache/
 .mypy_cache/
 .vscode/
