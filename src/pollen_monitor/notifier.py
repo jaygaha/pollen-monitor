@@ -97,13 +97,16 @@ def compose_slack_message(data, place_name):
                     "text": f"*Description:*\n{index_description}"
                 }
             },
-            # {
-            #     "type": "section",
-            #     "text": {
-            #         "type": "mrkdwn",
-            #         "text": f"*Health Recommendations:*\n{formatted_health_recommendations}"
-            #     }
-            # },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Health Recommendations:*\n{formatted_health_recommendations}"
+                }
+            },
+            {
+                "type": "divider"
+            },
             {
                 "type": "context",
                 "elements": [
